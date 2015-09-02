@@ -30,14 +30,14 @@ public class ImageDetectByBorderColour {
 	public static void main(String[] args) {
 		System.loadLibrary(Core.NATIVE_LIBRARY_NAME);
 		//traceSkelitonFromRawInput("image-destination/test.png");
-		traceSkelitonFromRawInput("image-source/input.png");
+		traceSkelitonFromRawInput("image-source/input.png",1);
 		//traceSkelitonFromRawInput("image-source/image-vessel.png");
 		
 		
 		//traceSkeliton("image-source/input-skeliton-1.png");
 	}
 	
-	public static void traceSkelitonFromRawInput(String fileName){
+	public static String traceSkelitonFromRawInput(String fileName,int lineWidth){
 		String dateTimeComponent = dateFormat.format(new Date());
 		Mat sourceImage = null;
 		sourceImage = Imgcodecs.imread(fileName);
@@ -59,7 +59,9 @@ public class ImageDetectByBorderColour {
 		List<PointData> initialPointList = new ArrayList<PointData>();
 		 
 		for(int rowStart = 0;rowStart < rowMax;rowStart++){
-			double prevColourValue = 120;
+			//double prevColourValue = 120;
+			double prevColourValue = 0;
+			int previousMatchCol = -1;
 			//int colStart = 0;
 			for(int colStart = 0;colStart < colMax;colStart++){
 				double[] valueArray = sourceImageGrey.get(rowStart, colStart);
@@ -67,9 +69,13 @@ public class ImageDetectByBorderColour {
 				double value = valueArray[0];
 				
 				if(Math.abs(value - prevColourValue) > 50){
-					PointData pointData = new PointData(colStart,rowStart);
-					initialPointList.add(pointData);
-					prevColourValue = value;
+					if((previousMatchCol >= 0 && (colStart - previousMatchCol) > lineWidth) || (previousMatchCol == -1)){
+						PointData pointData = new PointData(colStart,rowStart);
+						initialPointList.add(pointData);
+						prevColourValue = value;
+						previousMatchCol = colStart;
+					}
+					
 				}
 				
 			}
@@ -88,16 +94,22 @@ public class ImageDetectByBorderColour {
 		initialPointList.clear();
 		
 		for(int colStart = 0;colStart < colMax;colStart++){
-			double prevColourValue = 120;
+			//double prevColourValue = 120;
+			double prevColourValue = 0;
+			int previousMatchRow = -1;
 			for(int rowStart = 0;rowStart < rowMax;rowStart++){
 				double[] valueArray = sourceImageGrey.get(rowStart, colStart);
 				
 				double value = valueArray[0];
 				
 				if(Math.abs(value - prevColourValue) > 50){
-					PointData pointData = new PointData(colStart,rowStart);
-					initialPointList.add(pointData);
-					prevColourValue = value;
+					if((previousMatchRow >= 0 && (rowStart - previousMatchRow) > lineWidth) || (previousMatchRow == -1)){
+						PointData pointData = new PointData(colStart,rowStart);
+						initialPointList.add(pointData);
+						prevColourValue = value;
+						previousMatchRow = rowStart;
+					}
+					
 				}
 				
 			}
@@ -139,17 +151,20 @@ public class ImageDetectByBorderColour {
 			Point pt1 = new Point(lineData.getStartPointData().getX(), lineData.getStartPointData().getY());
 			Point pt2 = new Point(lineData.getEndPointData().getX(), lineData.getEndPointData().getY());
 			
-			int length = lineData.getLength();
-			if(length < ImageConstant.LINE_LENGTH_THRESOLD_HORIZONTAL){
+			//int length = lineData.getLength();
+			/*if(length < ImageConstant.LINE_LENGTH_THRESOLD_HORIZONTAL){
 				continue;
-			}
+			}*/
 			
 			filteredHorizontalLines.add(lineData);
 			
 			Imgproc.line(colorDst,pt1, pt2, new Scalar(0),1);
 		}
 
-		Imgcodecs.imwrite("image-destination1/input-skeliton-"+dateTimeComponent+".png", colorDst);
+		String fileOut = "image-destination1/input-skeliton-"+dateTimeComponent+".png";
+		Imgcodecs.imwrite(fileOut, colorDst);
+		
+		return fileOut;
 				 
 	}
 	

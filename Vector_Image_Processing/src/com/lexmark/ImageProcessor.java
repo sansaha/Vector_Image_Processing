@@ -7,28 +7,129 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
+import org.apache.log4j.Logger;
 import org.opencv.core.Core;
 import org.opencv.core.CvType;
 import org.opencv.core.Mat;
 import org.opencv.core.MatOfPoint;
-import org.opencv.core.MatOfPoint2f;
 import org.opencv.core.Point;
 import org.opencv.core.Scalar;
 import org.opencv.core.Size;
-import org.opencv.imgproc.Imgproc;
 import org.opencv.imgcodecs.Imgcodecs;
+import org.opencv.imgproc.Imgproc;
+
+import com.lexmark.utils.ImageDetectByBorderColour;
 
 
 
 public class ImageProcessor {
 	
+	private static final Logger logger = Logger.getLogger(ImageProcessor.class);
 	private static final DateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd-HH-mm-ss");
+	
+	
+	public static void main(String[] args) {
+		System.loadLibrary(Core.NATIVE_LIBRARY_NAME);
+		String fileName = args.length >= 1 ? args[0] : "image-source/input.png";
+		//fileName = "image-source/image-vessel.png";
+		//fileName = "image-source/map.png";
+		String dateTimeComponent = dateFormat.format(new Date());
+		
+		Mat sourceImage = null;
+		
+		sourceImage = Imgcodecs.imread(fileName);
+		
+		System.out.println(sourceImage);
+		
+		Mat sourceImageGrey = new Mat(sourceImage.rows(),sourceImage.cols(),CvType.CV_8UC1);
+		
+		Imgproc.cvtColor(sourceImage, sourceImageGrey,  Imgproc.COLOR_RGB2GRAY);
+		System.out.println(sourceImageGrey);
+		//Imgcodecs.imwrite("image-destination1/input-grey-"+dateTimeComponent+".png", sourceImageGrey);
+		
+		int scaleFactor = 1;
+		
+		Size scaledSize = new Size(sourceImageGrey.size().width*scaleFactor, sourceImageGrey.size().height*scaleFactor);
+		Mat sourceImageGreyScaled = new Mat(scaledSize,CvType.CV_8UC1);
+		Imgproc.resize(sourceImageGrey, sourceImageGreyScaled,scaledSize,0,0,Imgproc.INTER_CUBIC);
+		
+		Imgproc.equalizeHist(sourceImageGreyScaled, sourceImageGreyScaled);
+		Imgcodecs.imwrite("image-destination1/hyst-"+dateTimeComponent+".png", sourceImageGreyScaled);
+		
+		Imgproc.erode(sourceImageGreyScaled, sourceImageGreyScaled, Imgproc.getStructuringElement(Imgproc.MORPH_CROSS, new Size(2,2)), new Point(0, 0), 1);
+		Imgproc.dilate(sourceImageGreyScaled, sourceImageGreyScaled, Imgproc.getStructuringElement(Imgproc.MORPH_CROSS, new Size(2,2)), new Point(0, 0), 1);
+		
+		Imgcodecs.imwrite("image-destination1/hyst-errode-dialate-"+dateTimeComponent+".png", sourceImageGreyScaled);
+		
+		Imgproc.threshold(sourceImageGreyScaled, sourceImageGreyScaled, 150, 255, Imgproc.THRESH_BINARY);
+		
+		//adaptiveMethod - ADAPTIVE_THRESH_MEAN_C or ADAPTIVE_THRESH_GAUSSIAN_C
+		//thresholdType - THRESH_BINARY or THRESH_BINARY_INV
+		//blockSize - 3, 5, 7 so on
+		//Imgproc.adaptiveThreshold(sourceImageGreyScaled, sourceImageGreyScaled, 255, Imgproc.ADAPTIVE_THRESH_GAUSSIAN_C, Imgproc.THRESH_BINARY_INV, 15, 4);
+		
+		
+		
+		String fileNameErode = "image-destination1/thresold-"+dateTimeComponent+".png";
+		Imgcodecs.imwrite(fileNameErode, sourceImageGreyScaled);
+		
+		Mat cannyMat = new Mat(sourceImageGreyScaled.size(),CvType.CV_8UC1);
+		Imgproc.Canny(sourceImageGreyScaled, cannyMat, 50, 150);
+		Imgcodecs.imwrite("image-destination1/canny-"+dateTimeComponent+".png", cannyMat);
+		
+		String fileOut = ImageDetectByBorderColour.traceSkelitonFromRawInput(fileNameErode,1);
+		
+		Mat sourceImageProcessed = Imgcodecs.imread(fileOut);
+		Mat sourceImageProcessedGray = new Mat(sourceImageProcessed.size(),CvType.CV_8UC1);
+		
+		Imgproc.cvtColor(sourceImageProcessed, sourceImageProcessedGray,  Imgproc.COLOR_RGB2GRAY);
+		
+		Imgproc.threshold(sourceImageProcessedGray, sourceImageProcessedGray, 150, 255, Imgproc.THRESH_BINARY_INV);
+		
+		Imgcodecs.imwrite("image-destination1/processed-thresold-"+dateTimeComponent+".png", sourceImageProcessedGray);
+		
+		
+		
+		List<MatOfPoint> contours = new ArrayList<MatOfPoint>();
+		Mat hirearchy = new Mat();
+		Imgproc.findContours(sourceImageProcessedGray, contours, hirearchy, Imgproc.RETR_LIST, Imgproc.CHAIN_APPROX_SIMPLE);
+		System.out.println("Total contours:: "+contours.size());
+		Mat drawContour = new Mat(cannyMat.size(),CvType.CV_8UC1,Scalar.all(0));
+		//Mat drawContourRegretionResult = new Mat(cannyMat.rows(),cannyMat.cols(),CvType.CV_8UC1,Scalar.all(0));
+		
+		//hirearchy.get(row, col)
+		
+		//int i = 0;
+		List<MatOfPoint> filteredContours = new ArrayList<MatOfPoint>();
+		for(MatOfPoint matOfPoint:contours){
+			double contourArea = Imgproc.contourArea(matOfPoint);
+			System.out.println("Area::"+contourArea);
+			if(contourArea > 499){ //499
+				//i++;
+				logger.info(matOfPoint.isContinuous());
+				filteredContours.add(matOfPoint);
+				
+				//TODO
+				logger.info(matOfPoint.dump());
+				/*if(i > 2){
+					break;
+				}*/
+				
+			}
+		}
+		
+		System.out.println("Filtered contours:: "+filteredContours.size());
+		
+		
+		Imgproc.drawContours(drawContour, filteredContours, -1, Scalar.all(255), 1);
+		Imgcodecs.imwrite("image-destination1/contours-"+dateTimeComponent+".png", drawContour);
+	}
 	
 
 	/**
 	 * @param args
 	 */
-	public static void main(String[] args) {
+	public static void main1(String[] args) {
 		System.loadLibrary(Core.NATIVE_LIBRARY_NAME);
 		//String fileName = args.length >= 1 ? args[0] : "image-source/image-vessel.png";
 		String fileName = args.length >= 1 ? args[0] : "image-source/input.png";
