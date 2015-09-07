@@ -18,7 +18,7 @@ import org.opencv.core.MatOfPoint2f;
 import org.opencv.core.Point;
 import org.opencv.core.Scalar;
 import org.opencv.core.Size;
-import org.opencv.imgcodecs.Imgcodecs;
+import org.opencv.highgui.Highgui;
 import org.opencv.imgproc.Imgproc;
 
 public class ImageDetectByBorderColour {
@@ -40,7 +40,8 @@ public class ImageDetectByBorderColour {
 	public static String traceSkelitonFromRawInput(String fileName,int lineWidth){
 		String dateTimeComponent = dateFormat.format(new Date());
 		Mat sourceImage = null;
-		sourceImage = Imgcodecs.imread(fileName);
+		//sourceImage = Imgcodecs.imread(fileName);
+		sourceImage = Highgui.imread(fileName);
 		Mat sourceImageGrey = new Mat(sourceImage.rows(),sourceImage.cols(),CvType.CV_8UC1);
 		
 		Imgproc.cvtColor(sourceImage, sourceImageGrey,  Imgproc.COLOR_RGB2GRAY);
@@ -138,7 +139,8 @@ public class ImageDetectByBorderColour {
 			
 			
 			filteredVerticalLines.add(lineData);
-			Imgproc.line(colorDst,pt1, pt2, new Scalar(0),1);
+			//Imgproc.line(colorDst,pt1, pt2, new Scalar(0),1);
+			Core.line(colorDst,pt1, pt2, new Scalar(0),1);
 		}
 		
 		
@@ -158,11 +160,13 @@ public class ImageDetectByBorderColour {
 			
 			filteredHorizontalLines.add(lineData);
 			
-			Imgproc.line(colorDst,pt1, pt2, new Scalar(0),1);
+			//Imgproc.line(colorDst,pt1, pt2, new Scalar(0),1);
+			Core.line(colorDst,pt1, pt2, new Scalar(0),1);
 		}
 
 		String fileOut = "image-destination1/input-skeliton-"+dateTimeComponent+".png";
-		Imgcodecs.imwrite(fileOut, colorDst);
+		//Imgcodecs.imwrite(fileOut, colorDst);
+		Highgui.imwrite(fileOut, colorDst);
 		
 		return fileOut;
 				 
@@ -171,7 +175,8 @@ public class ImageDetectByBorderColour {
 	
 	public static void traceSkeliton(String fileName){
 		String dateTimeComponent = dateFormat.format(new Date());
-		Mat sourceImageGrey = Imgcodecs.imread(fileName);
+		//Mat sourceImageGrey = Imgcodecs.imread(fileName);
+		Mat sourceImageGrey = Highgui.imread(fileName);
 		
 		logger.info("Image row:: "+sourceImageGrey.rows());
 		logger.info("Image columns:: "+sourceImageGrey.cols());
@@ -191,13 +196,13 @@ public class ImageDetectByBorderColour {
 		Imgproc.GaussianBlur(sourceImageGreyScaled, sourceImageGreyScaled, new Size (5,5), 2, 2);
 		
 		Imgproc.erode(sourceImageGreyScaled, sourceImageIrrode, Imgproc.getStructuringElement(Imgproc.MORPH_CROSS, new Size(2,2)),new Point(0, 0),1);
-		Imgcodecs.imwrite("image-destination1/erode-"+dateTimeComponent+".png", sourceImageIrrode);
+		Highgui.imwrite("image-destination1/erode-"+dateTimeComponent+".png", sourceImageIrrode);
 		
 		Imgproc.threshold(sourceImageIrrode, sourceImageIrrode, 200, 255, Imgproc.THRESH_BINARY);
-		Imgcodecs.imwrite("image-destination1/erode-thresold-"+dateTimeComponent+".png", sourceImageIrrode);
+		Highgui.imwrite("image-destination1/erode-thresold-"+dateTimeComponent+".png", sourceImageIrrode);
 		
 		Imgproc.dilate(sourceImageIrrode, sourceImageIrrode, Imgproc.getStructuringElement(Imgproc.MORPH_CROSS, new Size(2,2)),new Point(0, 0),3);
-		Imgcodecs.imwrite("image-destination1/dilate-"+dateTimeComponent+".png", sourceImageIrrode);
+		Highgui.imwrite("image-destination1/dilate-"+dateTimeComponent+".png", sourceImageIrrode);
 		
 		List<PointData> initialPointList = new ArrayList<PointData>();
 		 
@@ -269,7 +274,8 @@ public class ImageDetectByBorderColour {
 			
 			
 			filteredVerticalLines.add(lineData);
-			Imgproc.line(colorDst,pt1, pt2, new Scalar(0),1);
+			//Imgproc.line(colorDst,pt1, pt2, new Scalar(0),1);
+			Core.line(colorDst,pt1, pt2, new Scalar(0),1);
 		}
 		
 		
@@ -289,15 +295,16 @@ public class ImageDetectByBorderColour {
 			
 			filteredHorizontalLines.add(lineData);
 			
-			Imgproc.line(colorDst,pt1, pt2, new Scalar(0),1);
+			//Imgproc.line(colorDst,pt1, pt2, new Scalar(0),1);
+			Core.line(colorDst,pt1, pt2, new Scalar(0),1);
 		}
 
-		Imgcodecs.imwrite("image-destination1/input-skeliton1-"+dateTimeComponent+".png", colorDst);
+		Highgui.imwrite("image-destination1/input-skeliton1-"+dateTimeComponent+".png", colorDst);
 		
 		Mat cannyMat = new Mat(colorDst.rows(),colorDst.cols(),CvType.CV_8UC1);
 		
 		Imgproc.Canny(colorDst, cannyMat, 50, 150);
-		Imgcodecs.imwrite("image-destination1/canny-"+dateTimeComponent+".png", cannyMat);
+		Highgui.imwrite("image-destination1/canny-"+dateTimeComponent+".png", cannyMat);
 		
 		List<MatOfPoint> contours = new ArrayList<>();
 		Mat hirearchy = new Mat();
@@ -326,7 +333,7 @@ public class ImageDetectByBorderColour {
 		
 		
 		Imgproc.drawContours(drawContour, filteredContours, -1, Scalar.all(255), 1);
-		Imgcodecs.imwrite("image-destination1/contours-"+dateTimeComponent+".png", drawContour);
+		Highgui.imwrite("image-destination1/contours-"+dateTimeComponent+".png", drawContour);
 				 
 	}
 	

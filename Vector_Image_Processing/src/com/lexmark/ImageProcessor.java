@@ -15,7 +15,7 @@ import org.opencv.core.MatOfPoint;
 import org.opencv.core.Point;
 import org.opencv.core.Scalar;
 import org.opencv.core.Size;
-import org.opencv.imgcodecs.Imgcodecs;
+import org.opencv.highgui.Highgui;
 import org.opencv.imgproc.Imgproc;
 
 import com.lexmark.utils.ImageDetectByBorderColour;
@@ -37,7 +37,8 @@ public class ImageProcessor {
 		
 		Mat sourceImage = null;
 		
-		sourceImage = Imgcodecs.imread(fileName);
+		//sourceImage = Imgcodecs.imread(fileName);
+		sourceImage = Highgui.imread(fileName);
 		
 		System.out.println(sourceImage);
 		
@@ -47,54 +48,59 @@ public class ImageProcessor {
 		System.out.println(sourceImageGrey);
 		//Imgcodecs.imwrite("image-destination1/input-grey-"+dateTimeComponent+".png", sourceImageGrey);
 		
-		int scaleFactor = 1;
+		int scaleFactor = 2;
 		
 		Size scaledSize = new Size(sourceImageGrey.size().width*scaleFactor, sourceImageGrey.size().height*scaleFactor);
 		Mat sourceImageGreyScaled = new Mat(scaledSize,CvType.CV_8UC1);
 		Imgproc.resize(sourceImageGrey, sourceImageGreyScaled,scaledSize,0,0,Imgproc.INTER_CUBIC);
 		
+		
 		Imgproc.equalizeHist(sourceImageGreyScaled, sourceImageGreyScaled);
-		Imgcodecs.imwrite("image-destination1/hyst-"+dateTimeComponent+".png", sourceImageGreyScaled);
+		Highgui.imwrite("image-destination1/hyst-"+dateTimeComponent+".png", sourceImageGreyScaled);
 		
 		Imgproc.erode(sourceImageGreyScaled, sourceImageGreyScaled, Imgproc.getStructuringElement(Imgproc.MORPH_CROSS, new Size(2,2)), new Point(0, 0), 1);
 		Imgproc.dilate(sourceImageGreyScaled, sourceImageGreyScaled, Imgproc.getStructuringElement(Imgproc.MORPH_CROSS, new Size(2,2)), new Point(0, 0), 1);
 		
-		Imgcodecs.imwrite("image-destination1/hyst-errode-dialate-"+dateTimeComponent+".png", sourceImageGreyScaled);
+		Highgui.imwrite("image-destination1/hyst-errode-dialate-"+dateTimeComponent+".png", sourceImageGreyScaled);
 		
 		Imgproc.threshold(sourceImageGreyScaled, sourceImageGreyScaled, 150, 255, Imgproc.THRESH_BINARY);
+		
 		
 		//adaptiveMethod - ADAPTIVE_THRESH_MEAN_C or ADAPTIVE_THRESH_GAUSSIAN_C
 		//thresholdType - THRESH_BINARY or THRESH_BINARY_INV
 		//blockSize - 3, 5, 7 so on
 		//Imgproc.adaptiveThreshold(sourceImageGreyScaled, sourceImageGreyScaled, 255, Imgproc.ADAPTIVE_THRESH_GAUSSIAN_C, Imgproc.THRESH_BINARY_INV, 15, 4);
-		
+		/*Imgproc.adaptiveThreshold(sourceImageGreyScaled, sourceImageGreyScaled, 255, Imgproc.ADAPTIVE_THRESH_GAUSSIAN_C, Imgproc.THRESH_BINARY, 15, 4);
+		//Imgproc.erode(sourceImageGreyScaled, sourceImageGreyScaled, Imgproc.getStructuringElement(Imgproc.MORPH_CROSS, new Size(2,2)), new Point(0, 0), 1);
+		Imgproc.equalizeHist(sourceImageGreyScaled, sourceImageGreyScaled);
+		Imgproc.threshold(sourceImageGreyScaled, sourceImageGreyScaled, 150, 255, Imgproc.THRESH_BINARY_INV);*/
 		
 		
 		String fileNameErode = "image-destination1/thresold-"+dateTimeComponent+".png";
-		Imgcodecs.imwrite(fileNameErode, sourceImageGreyScaled);
+		Highgui.imwrite(fileNameErode, sourceImageGreyScaled);
 		
-		Mat cannyMat = new Mat(sourceImageGreyScaled.size(),CvType.CV_8UC1);
+		/*Mat cannyMat = new Mat(sourceImageGreyScaled.size(),CvType.CV_8UC1);
 		Imgproc.Canny(sourceImageGreyScaled, cannyMat, 50, 150);
-		Imgcodecs.imwrite("image-destination1/canny-"+dateTimeComponent+".png", cannyMat);
+		Imgcodecs.imwrite("image-destination1/canny-"+dateTimeComponent+".png", cannyMat);*/
 		
 		String fileOut = ImageDetectByBorderColour.traceSkelitonFromRawInput(fileNameErode,1);
 		
-		Mat sourceImageProcessed = Imgcodecs.imread(fileOut);
+		Mat sourceImageProcessed = Highgui.imread(fileOut);
 		Mat sourceImageProcessedGray = new Mat(sourceImageProcessed.size(),CvType.CV_8UC1);
 		
 		Imgproc.cvtColor(sourceImageProcessed, sourceImageProcessedGray,  Imgproc.COLOR_RGB2GRAY);
 		
 		Imgproc.threshold(sourceImageProcessedGray, sourceImageProcessedGray, 150, 255, Imgproc.THRESH_BINARY_INV);
 		
-		Imgcodecs.imwrite("image-destination1/processed-thresold-"+dateTimeComponent+".png", sourceImageProcessedGray);
+		Highgui.imwrite("image-destination1/processed-thresold-"+dateTimeComponent+".png", sourceImageProcessedGray);
 		
 		
 		
 		List<MatOfPoint> contours = new ArrayList<MatOfPoint>();
 		Mat hirearchy = new Mat();
-		Imgproc.findContours(sourceImageProcessedGray, contours, hirearchy, Imgproc.RETR_LIST, Imgproc.CHAIN_APPROX_SIMPLE);
+		Imgproc.findContours(sourceImageProcessedGray, contours, hirearchy, Imgproc.RETR_TREE, Imgproc.CHAIN_APPROX_SIMPLE);
 		System.out.println("Total contours:: "+contours.size());
-		Mat drawContour = new Mat(cannyMat.size(),CvType.CV_8UC1,Scalar.all(0));
+		Mat drawContour = new Mat(sourceImageProcessedGray.size(),CvType.CV_8UC1,Scalar.all(255));
 		//Mat drawContourRegretionResult = new Mat(cannyMat.rows(),cannyMat.cols(),CvType.CV_8UC1,Scalar.all(0));
 		
 		//hirearchy.get(row, col)
@@ -120,9 +126,15 @@ public class ImageProcessor {
 		
 		System.out.println("Filtered contours:: "+filteredContours.size());
 		
+		filteredContours = ContourHelper.filterDuplicateContour(filteredContours,2,2);
 		
-		Imgproc.drawContours(drawContour, filteredContours, -1, Scalar.all(255), 1);
-		Imgcodecs.imwrite("image-destination1/contours-"+dateTimeComponent+".png", drawContour);
+		System.out.println("Filtered contours:: "+filteredContours.size());
+		
+		ContourHelper.processPoints(filteredContours.get(1));
+		
+		
+		Imgproc.drawContours(drawContour, filteredContours, -1, Scalar.all(0), 1);
+		Highgui.imwrite("image-destination1/contours-"+dateTimeComponent+".png", drawContour);
 	}
 	
 
@@ -139,7 +151,7 @@ public class ImageProcessor {
 		
 		Mat sourceImage = null;
 		
-		sourceImage = Imgcodecs.imread(fileName);
+		sourceImage = Highgui.imread(fileName);
 		
 		System.out.println(sourceImage);
 		
@@ -147,7 +159,7 @@ public class ImageProcessor {
 		
 		Imgproc.cvtColor(sourceImage, sourceImageGrey,  Imgproc.COLOR_RGB2GRAY);
 		System.out.println(sourceImageGrey);
-		Imgcodecs.imwrite("image-destination1/input-grey-"+dateTimeComponent+".png", sourceImageGrey);
+		Highgui.imwrite("image-destination1/input-grey-"+dateTimeComponent+".png", sourceImageGrey);
 		
 		int scaleFactor = 3;
 		
@@ -181,7 +193,7 @@ public class ImageProcessor {
 		
 		Mat destinationDilate = new Mat(sourceImageGreyScaled.rows(),sourceImageGreyScaled.cols(),CvType.CV_8UC1);
 		Imgproc.dilate(sourceImageGreyScaled, destinationDilate, Imgproc.getStructuringElement(Imgproc.MORPH_RECT, new Size(1,1)),new Point(0, 0),1);
-		Imgcodecs.imwrite("image-destination1/dilate-"+dateTimeComponent+".png", destinationDilate);
+		Highgui.imwrite("image-destination1/dilate-"+dateTimeComponent+".png", destinationDilate);
 		
 		/*Mat destinationErodeDilate = new Mat(sourceImageGreyScaled.rows(),sourceImageGreyScaled.cols(),CvType.CV_8UC1);
 		//Core.addWeighted(destinationErode, 1, destinationDilate, 1, 0, destinationErodeDilate);
@@ -192,7 +204,7 @@ public class ImageProcessor {
 		Mat cannyMat = new Mat(sourceImageGreyScaled.rows(),sourceImageGreyScaled.cols(),CvType.CV_8UC1);
 		
 		Imgproc.Canny(destinationDilate, cannyMat, 50, 150);
-		Imgcodecs.imwrite("image-destination1/canny-"+dateTimeComponent+".png", cannyMat);
+		Highgui.imwrite("image-destination1/canny-"+dateTimeComponent+".png", cannyMat);
 		
 		List<MatOfPoint> contours = new ArrayList<>();
 		Mat hirearchy = new Mat();
@@ -230,7 +242,7 @@ public class ImageProcessor {
 //		Imgproc.fillPoly(drawContour, resultPolys, Scalar.all(0),8,0,new Point(0,0));
 		
 		Imgproc.drawContours(drawContour, contours, -1, Scalar.all(255), 1);
-		Imgcodecs.imwrite("image-destination1/contours-"+dateTimeComponent+".png", drawContour);
+		Highgui.imwrite("image-destination1/contours-"+dateTimeComponent+".png", drawContour);
 		
 		//cvShowImage("Image New Merged", sourceImage);
 	       

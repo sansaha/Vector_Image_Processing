@@ -8,6 +8,25 @@ import java.util.TreeMap;
 
 public class LineUtils {
 	
+	public static LineData getLargestLine(List<LineData> lines){
+		
+		LineData lineDataLargest = null;
+		int totLines = lines.size();
+		if(totLines > 0){
+			lineDataLargest = lines.get(0);
+			
+			for (int i = 1; i < totLines; i++) {
+				LineData tmpLineData = lines.get(i);
+				if(lineDataLargest.getLength() < tmpLineData.getLength()){
+					lineDataLargest = tmpLineData;
+				}
+			}
+			
+		}
+		
+		return lineDataLargest;
+	}
+	
 	public static boolean mergeHorizontalLines(List<LineData> horizLines,int dX,int dY){
 		
 		boolean mergeSuccess = false;

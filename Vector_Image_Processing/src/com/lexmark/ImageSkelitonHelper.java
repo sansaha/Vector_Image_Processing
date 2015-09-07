@@ -15,7 +15,7 @@ import org.opencv.core.MatOfPoint2f;
 import org.opencv.core.Point;
 import org.opencv.core.Scalar;
 import org.opencv.core.Size;
-import org.opencv.imgcodecs.Imgcodecs;
+import org.opencv.highgui.Highgui;
 import org.opencv.imgproc.Imgproc;
 
 import com.lexmark.utils.LineData;
@@ -46,7 +46,8 @@ public class ImageSkelitonHelper {
 		
 		Mat sourceImage = null;
 		
-		sourceImage = Imgcodecs.imread(fileName);
+		//sourceImage = Imgcodecs.imread(fileName);
+		sourceImage = Highgui.imread(fileName);
 		
 		//System.out.println(sourceImage);
 		
@@ -63,12 +64,12 @@ public class ImageSkelitonHelper {
 		Imgproc.resize(sourceImageGrey, sourceImageGreyScaled,scaledSize,0,0,Imgproc.INTER_CUBIC);
 		
 		Imgproc.equalizeHist(sourceImageGreyScaled, sourceImageGreyScaled);
-		Imgcodecs.imwrite("image-destination/histeq"+dateTimeComponent+".png", sourceImageGreyScaled);
+		Highgui.imwrite("image-destination/histeq"+dateTimeComponent+".png", sourceImageGreyScaled);
 		Mat sourceImageBinary = new Mat(sourceImageGreyScaled.rows(),sourceImageGreyScaled.cols(),CvType.CV_8UC1,Scalar.all(255.0));
 		Mat erodeImageBinary = new Mat(sourceImageGreyScaled.rows(),sourceImageGreyScaled.cols(),CvType.CV_8UC1,Scalar.all(255.0));
 		//Mat dilateImageBinary = new Mat(sourceImageGreyScaled.rows(),sourceImageGreyScaled.cols(),CvType.CV_8UC1,Scalar.all(255.0));
 		Imgproc.erode(sourceImageGreyScaled, erodeImageBinary, Imgproc.getStructuringElement(Imgproc.MORPH_CROSS, new Size(2,2)), new Point(0, 0), 4);
-		Imgcodecs.imwrite("image-destination/erode"+dateTimeComponent+".png", erodeImageBinary);
+		Highgui.imwrite("image-destination/erode"+dateTimeComponent+".png", erodeImageBinary);
 		Imgproc.threshold(erodeImageBinary, sourceImageBinary, 120, 255, Imgproc.THRESH_BINARY);	
 		
 		
@@ -91,7 +92,7 @@ public class ImageSkelitonHelper {
 		
 		Mat cannyMat = new Mat(sourceImageBinary.rows(),sourceImageBinary.cols(),CvType.CV_8UC1);
 		Imgproc.Canny(sourceImageBinary, cannyMat, 50, 150);
-		Imgcodecs.imwrite("image-destination/canny-"+dateTimeComponent+".png", cannyMat);
+		Highgui.imwrite("image-destination/canny-"+dateTimeComponent+".png", cannyMat);
 		
 		
 		
@@ -144,7 +145,7 @@ public class ImageSkelitonHelper {
 		
 		//System.out.println("Total filtered contours:: "+filteredContours.size());
 		Imgproc.drawContours(drawContour, contours, -1, Scalar.all(255), 1);
-		Imgcodecs.imwrite("image-destination/contours-"+dateTimeComponent+".png", drawContour);
+		Highgui.imwrite("image-destination/contours-"+dateTimeComponent+".png", drawContour);
 		
 		Mat drawContourResult = new Mat(cannyMat.rows(),cannyMat.cols(),CvType.CV_8UC1,Scalar.all(0));
 		for(MatOfPoint matOfPoint:filteredContours){
@@ -158,18 +159,18 @@ public class ImageSkelitonHelper {
 						continue;
 					}
 					//System.out.println("Drawing line between "+point1+" and "+point2);
-					Imgproc.line(drawContourResult, point1, point2, new Scalar(255));
+					Core.line(drawContourResult, point1, point2, new Scalar(255));
 				}
 				
 			}
 		}
 		//Imgproc.drawContours(drawContourResult, filteredContours, -1, Scalar.all(255), 1);
-		Imgcodecs.imwrite("image-destination/contours-filtered-"+dateTimeComponent+".png", drawContourResult);
+		Highgui.imwrite("image-destination/contours-filtered-"+dateTimeComponent+".png", drawContourResult);
 		
 		Mat drawContourRegretionResult = new Mat(cannyMat.rows(),cannyMat.cols(),CvType.CV_8UC1,Scalar.all(0));
 		Imgproc.drawContours(drawContourRegretionResult, filteredProcessedContours, 0, Scalar.all(255), 1);
 		//Imgproc.drawContours(drawContourRegretionResult, filteredProcessedContours, -1, Scalar.all(255),1,Imgproc.LINE_4,hirearchy,0,new Point(0,0));
-		Imgcodecs.imwrite("image-destination/contours-filtered-processed-"+dateTimeComponent+".png", drawContourRegretionResult);
+		Highgui.imwrite("image-destination/contours-filtered-processed-"+dateTimeComponent+".png", drawContourRegretionResult);
 		
 				
 		
@@ -206,7 +207,7 @@ public class ImageSkelitonHelper {
 		
 		Mat sourceImage = null;
 		
-		sourceImage = Imgcodecs.imread(fileName);
+		sourceImage = Highgui.imread(fileName);
 		
 		System.out.println(sourceImage);
 		
@@ -229,16 +230,16 @@ public class ImageSkelitonHelper {
 		Imgproc.erode(sourceImageGreyScaled, sourceImageGreyScaled, Imgproc.getStructuringElement(Imgproc.MORPH_CROSS, new Size(2,2)), new Point(0, 0), 2);
 		
 		Imgproc.threshold(sourceImageGreyScaled, sourceImageGreyScaled, 120, 255, Imgproc.THRESH_BINARY);
-		Imgcodecs.imwrite("image-destination/thresold-"+dateTimeComponent+".png", sourceImageGreyScaled);
+		Highgui.imwrite("image-destination/thresold-"+dateTimeComponent+".png", sourceImageGreyScaled);
 		
 		Imgproc.erode(sourceImageGreyScaled, sourceImageGreyScaled, Imgproc.getStructuringElement(Imgproc.MORPH_CROSS, new Size(2,2)), new Point(0, 0), 2);
-		Imgcodecs.imwrite("image-destination/thresold-erode-"+dateTimeComponent+".png", sourceImageGreyScaled);
+		Highgui.imwrite("image-destination/thresold-erode-"+dateTimeComponent+".png", sourceImageGreyScaled);
 		
 				
 		Mat contourInput = sourceImageGreyScaled.clone();
 		Imgproc.threshold(contourInput, contourInput, 240, 255, Imgproc.THRESH_BINARY_INV);
 		//Imgproc.dilate(contourInput, contourInput, Imgproc.getStructuringElement(Imgproc.MORPH_CROSS, new Size(5,5)), new Point(0, 0), 1);
-		Imgcodecs.imwrite("image-destination/contour-input-"+dateTimeComponent+".png", contourInput);
+		Highgui.imwrite("image-destination/contour-input-"+dateTimeComponent+".png", contourInput);
 		
 		/*Mat contourInputThin = contourInput.clone();
 		ImageThinner.ThinSubiteration2(sourceImageGreyScaled, contourInputThin);
@@ -247,7 +248,7 @@ public class ImageSkelitonHelper {
 
 		Mat cannyMat = new Mat(sourceImageGreyScaled.rows(),sourceImageGreyScaled.cols(),CvType.CV_8UC1);
 		Imgproc.Canny(sourceImageGreyScaled, cannyMat, 50, 150);
-		Imgcodecs.imwrite("image-destination/canny-"+dateTimeComponent+".png", cannyMat);
+		Highgui.imwrite("image-destination/canny-"+dateTimeComponent+".png", cannyMat);
 		
 
 		List<MatOfPoint> contours = new ArrayList<MatOfPoint>();
@@ -296,7 +297,7 @@ public class ImageSkelitonHelper {
 					if(openPoint != null){
 						int lengthTmp = RegressionUtils.getLength(openPoint, point1);
 						if(lengthTmp >= 5){
-							Imgproc.line(drawContourResult, openPoint, point1, new Scalar(255),1);
+							Core.line(drawContourResult, openPoint, point1, new Scalar(255),1);
 						}
 						openPoint = null;
 					}
@@ -389,7 +390,7 @@ public class ImageSkelitonHelper {
 				lineGroup.doRegression();
 				Point point1 = new Point(lineGroup.getStartX(), lineGroup.getStartY());
 				Point point2 = new Point(lineGroup.getEndX(), lineGroup.getEndY());
-				Imgproc.line(drawContourResult, point1, point2, new Scalar(255),1);
+				Core.line(drawContourResult, point1, point2, new Scalar(255),1);
 			}
 			
 			
@@ -426,7 +427,7 @@ public class ImageSkelitonHelper {
 				lineGroup.doRegression();
 				Point point1 = new Point(lineGroup.getStartX(), lineGroup.getStartY());
 				Point point2 = new Point(lineGroup.getEndX(), lineGroup.getEndY());
-				Imgproc.line(drawContourResult, point1, point2, new Scalar(255),1);
+				Core.line(drawContourResult, point1, point2, new Scalar(255),1);
 			}
 			
 			
@@ -436,12 +437,12 @@ public class ImageSkelitonHelper {
 		
 		//Imgproc.drawContours(drawContour, contours, -1, Scalar.all(255), 3);
 		Imgproc.drawContours(drawContour, filteredContours, -1, Scalar.all(255), 2);
-		Imgcodecs.imwrite("image-destination/contours-"+dateTimeComponent+".png", drawContour);
+		Highgui.imwrite("image-destination/contours-"+dateTimeComponent+".png", drawContour);
 		
 		//Imgproc.drawContours(drawContourResult, filteredContours, -1, Scalar.all(255), 3);
-		Imgcodecs.imwrite("image-destination/contours-filtered-"+dateTimeComponent+".png", drawContourResult);
+		Highgui.imwrite("image-destination/contours-filtered-"+dateTimeComponent+".png", drawContourResult);
 		
-		Imgcodecs.imwrite("image-destination/contours-filtered-psd-"+dateTimeComponent+".png", drawContourResultProcessed);
+		Highgui.imwrite("image-destination/contours-filtered-psd-"+dateTimeComponent+".png", drawContourResultProcessed);
 		
 		/*double newScaleFactor = 0.33;
 		

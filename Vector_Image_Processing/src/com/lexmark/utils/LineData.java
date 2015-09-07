@@ -10,7 +10,14 @@ public class LineData {
 	private boolean ignore = false;
 	private int matchingPixelCount = 0;
 	private boolean borderLine = false;
+	private int contourSequence;
 	
+	public int getContourSequence() {
+		return contourSequence;
+	}
+	public void setContourSequence(int contourSequence) {
+		this.contourSequence = contourSequence;
+	}
 	@Override
 	public String toString() {
 		return "LineData [start=" + startPointData + ", end="
