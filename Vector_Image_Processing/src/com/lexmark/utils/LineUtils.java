@@ -8,6 +8,32 @@ import java.util.TreeMap;
 
 public class LineUtils {
 	
+	public static List<LineData> getHorizontalLines(List<LineData> allLines){
+		
+		List<LineData> horizontalLines = new ArrayList<LineData>();
+		
+		for(LineData lineData:allLines){
+			if(lineData.isHorizontal()){
+				horizontalLines.add(lineData);
+			}
+		}
+
+		return horizontalLines;
+	}
+	
+	public static List<LineData> getVerticalLines(List<LineData> allLines){
+		
+		List<LineData> verticalLines = new ArrayList<LineData>();
+		
+		for(LineData lineData:allLines){
+			if(lineData.isVertical()){
+				verticalLines.add(lineData);
+			}
+		}
+
+		return verticalLines;
+	}
+	
 	public static LineData getLargestLine(List<LineData> lines){
 		
 		LineData lineDataLargest = null;

@@ -12,6 +12,7 @@ import org.opencv.core.Core;
 import org.opencv.core.CvType;
 import org.opencv.core.Mat;
 import org.opencv.core.MatOfPoint;
+import org.opencv.core.MatOfPoint2f;
 import org.opencv.core.Point;
 import org.opencv.core.Scalar;
 import org.opencv.core.Size;
@@ -56,11 +57,15 @@ public class ImageProcessor {
 		
 		
 		Imgproc.equalizeHist(sourceImageGreyScaled, sourceImageGreyScaled);
-		Highgui.imwrite("image-destination1/hyst-"+dateTimeComponent+".png", sourceImageGreyScaled);
+		
+		//TODO
+		//Highgui.imwrite("image-destination1/hyst-"+dateTimeComponent+".png", sourceImageGreyScaled);
 		
 		Imgproc.erode(sourceImageGreyScaled, sourceImageGreyScaled, Imgproc.getStructuringElement(Imgproc.MORPH_CROSS, new Size(2,2)), new Point(0, 0), 1);
 		Imgproc.dilate(sourceImageGreyScaled, sourceImageGreyScaled, Imgproc.getStructuringElement(Imgproc.MORPH_CROSS, new Size(2,2)), new Point(0, 0), 1);
 		
+		//Imgproc.GaussianBlur(sourceImageGreyScaled, sourceImageGreyScaled, new Size(5,5),0);
+		Imgproc.medianBlur(sourceImageGreyScaled, sourceImageGreyScaled, 5);
 		Highgui.imwrite("image-destination1/hyst-errode-dialate-"+dateTimeComponent+".png", sourceImageGreyScaled);
 		
 		Imgproc.threshold(sourceImageGreyScaled, sourceImageGreyScaled, 150, 255, Imgproc.THRESH_BINARY);
@@ -75,8 +80,8 @@ public class ImageProcessor {
 		Imgproc.equalizeHist(sourceImageGreyScaled, sourceImageGreyScaled);
 		Imgproc.threshold(sourceImageGreyScaled, sourceImageGreyScaled, 150, 255, Imgproc.THRESH_BINARY_INV);*/
 		
-		
 		String fileNameErode = "image-destination1/thresold-"+dateTimeComponent+".png";
+		
 		Highgui.imwrite(fileNameErode, sourceImageGreyScaled);
 		
 		/*Mat cannyMat = new Mat(sourceImageGreyScaled.size(),CvType.CV_8UC1);
@@ -92,7 +97,8 @@ public class ImageProcessor {
 		
 		Imgproc.threshold(sourceImageProcessedGray, sourceImageProcessedGray, 150, 255, Imgproc.THRESH_BINARY_INV);
 		
-		Highgui.imwrite("image-destination1/processed-thresold-"+dateTimeComponent+".png", sourceImageProcessedGray);
+		//TODO
+		//Highgui.imwrite("image-destination1/processed-thresold-"+dateTimeComponent+".png", sourceImageProcessedGray);
 		
 		
 		
@@ -103,34 +109,41 @@ public class ImageProcessor {
 		Mat drawContour = new Mat(sourceImageProcessedGray.size(),CvType.CV_8UC1,Scalar.all(255));
 		//Mat drawContourRegretionResult = new Mat(cannyMat.rows(),cannyMat.cols(),CvType.CV_8UC1,Scalar.all(0));
 		
-		//hirearchy.get(row, col)
-		
-		//int i = 0;
 		List<MatOfPoint> filteredContours = new ArrayList<MatOfPoint>();
 		for(MatOfPoint matOfPoint:contours){
 			double contourArea = Imgproc.contourArea(matOfPoint);
 			System.out.println("Area::"+contourArea);
-			if(contourArea > 499){ //499
-				//i++;
-				logger.info(matOfPoint.isContinuous());
+			
+			if(contourArea == 0){
+				logger.info(matOfPoint.dump());
+				MatOfPoint2f contour2f = new MatOfPoint2f();
+				matOfPoint.convertTo(contour2f, CvType.CV_32FC2);
+				int arcLength = (int) Imgproc.arcLength(contour2f, matOfPoint.isContinuous());
+				System.out.println("Arc Length:"+arcLength);
+				if(arcLength > 0){
+					filteredContours.add(matOfPoint);
+				}
+			}else{
 				filteredContours.add(matOfPoint);
+			}
+			//if(contourArea > 499){ //499
+				//logger.info(matOfPoint.isContinuous());
+				//filteredContours.add(matOfPoint);
 				
 				//TODO
-				logger.info(matOfPoint.dump());
-				/*if(i > 2){
-					break;
-				}*/
+				//logger.info(matOfPoint.dump());
 				
-			}
+				
+			//}
 		}
 		
 		System.out.println("Filtered contours:: "+filteredContours.size());
 		
-		filteredContours = ContourHelper.filterDuplicateContour(filteredContours,2,2);
+		filteredContours = ContourHelper.filterDuplicateContour(filteredContours,0,1);
 		
 		System.out.println("Filtered contours:: "+filteredContours.size());
 		
-		ContourHelper.processPoints(filteredContours.get(1));
+		//ContourHelper.processPoints(filteredContours.get(1));
 		
 		
 		Imgproc.drawContours(drawContour, filteredContours, -1, Scalar.all(0), 1);

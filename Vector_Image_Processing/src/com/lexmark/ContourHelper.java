@@ -66,6 +66,7 @@ public class ContourHelper {
 					 continue;
 				 }
 				 
+				 boolean matchFound = false;
 				 for (int j = i+1; j < totContours; j++) {
 					 ContourWrapper nextContourWrapper = contourWrapperList.get(j);
 
@@ -78,7 +79,10 @@ public class ContourHelper {
 					 
 					 if(centroidDistance <= dCentroied){
 						 double baseArea = currentContourWrapper.getArea() > nextContourWrapper.getArea()?currentContourWrapper.getArea():nextContourWrapper.getArea();
-						 double areaChangePercentage = (Math.abs(currentContourWrapper.getArea()-nextContourWrapper.getArea())*100)/baseArea;
+						 double areaChangePercentage = 0;
+						 if(baseArea > 0){
+							 areaChangePercentage = (Math.abs(currentContourWrapper.getArea()-nextContourWrapper.getArea())*100)/baseArea;
+						 }
 						// System.out.println("Area change::"+areaChangePercentage);
 						 if(areaChangePercentage <= dAreaPercent){
 							 if(currentContourWrapper.getArea() >= nextContourWrapper.getArea()){
@@ -88,8 +92,14 @@ public class ContourHelper {
 								 refineContours.add(nextContourWrapper.getMatOfPoint());
 								 currentContourWrapper.setIgnore(true);
 							 }
+							 matchFound = true;
+							 break;
 						 }
 					 }
+				 }
+				 
+				 if(!matchFound){
+					 refineContours.add(currentContourWrapper.getMatOfPoint());
 				 }
 			}
 		}
@@ -155,40 +165,88 @@ public class ContourHelper {
 		
 		System.out.println("arcLength::"+arcLength);
 		
-		Map<Integer,List<LineData>> lineRegionMap = new LinkedHashMap<Integer,List<LineData>>();
+		LineData lineDataLargest = LineUtils.getLargestLine(lines);
 		
-		int maxDxPercent = 49;
+		//Map<Integer,List<LineData>> lineRegionMap = new LinkedHashMap<Integer,List<LineData>>();
+		
+		List<LineData> hzLines = LineUtils.getHorizontalLines(lines);
+		
+		List<LineData> vertLines = LineUtils.getVerticalLines(lines);
+		
+		/*int maxDxPercent = 49;
 		int maxDyPercent = 49;
 		
-		int groupNo = 1;
-		Mat drawContour = new Mat(2000,2000,CvType.CV_8UC1,Scalar.all(255));
-		for(LineData lineData:lines){
-			/*if(!lineRegionMap.containsKey(groupNo)){
+		int groupNo = 1;*/
+		Mat drawContourHz = new Mat(2000,2000,CvType.CV_8UC1,Scalar.all(255));
+		Mat drawContourVrt = drawContourHz.clone();
+		/*for(LineData lineData:lines){
+			if(!lineRegionMap.containsKey(groupNo)){
 				lineRegionMap.put(groupNo, new ArrayList<LineData>());
 			}
 			
 			List<LineData> regionLineList = lineRegionMap.get(groupNo);
 			
 			if(regionLineList.size() > 0){
-				LineData lineDataLargest = LineUtils.getLargestLine(regionLineList);
+				//LineData lineDataLargest = LineUtils.getLargestLine(regionLineList);
 				LineData linedataPrevious = regionLineList.get(regionLineList.size()-1);
 				int dX = Math.abs(linedataPrevious.getEndPointData().getX()-lineData.getEndPointData().getX());
 				int dY = Math.abs(linedataPrevious.getEndPointData().getY()-lineData.getEndPointData().getY());
-				int lengthPercentage = (lineData.getLength()*100)/lineDataLargest.getLength();
-				System.out.println(dX+","+dY+","+lengthPercentage);
+				//int lengthPercentage = (lineData.getLength()*100)/lineDataLargest.getLength();
+				//System.out.println(dX+","+dY+","+lengthPercentage);
+				if(dX <= 1 && dY <=1){
+					regionLineList.add(lineData);
+				}else{
+					groupNo++;
+					lineRegionMap.put(groupNo, new ArrayList<LineData>());
+					lineRegionMap.get(groupNo).add(lineData);
+				}
 			}else{
 				regionLineList.add(lineData);
 				continue;
-			}*/
+			}
 			if(lineData.getLength() < 1){
 				continue;
 			}
 			
-			Core.line(drawContour, new Point(lineData.getStartPointData().getX(),lineData.getStartPointData().getY()), new Point(lineData.getEndPointData().getX(),lineData.getEndPointData().getY()), Scalar.all(0));
+			//Core.line(drawContour, new Point(lineData.getStartPointData().getX(),lineData.getStartPointData().getY()), new Point(lineData.getEndPointData().getX(),lineData.getEndPointData().getY()), Scalar.all(0));
 			
+		}*/
+		
+		/*System.out.println("Total region:: "+lineRegionMap.keySet().size());
+		
+		for(Integer groupNoKey:lineRegionMap.keySet()){
+			System.out.println("Group#"+groupNoKey);
+			List<LineData> groupLines = lineRegionMap.get(groupNoKey);
+			PointData groupStartPoint = groupLines.get(0).getStartPointData();
+			
+			int startSeqNo = groupLines.get(0).getContourSequence();
+			PointData groupEndPoint = groupLines.get(groupLines.size()-1).getEndPointData();
+			int endSeqNo = groupLines.get(groupLines.size()-1).getContourSequence();
+			
+			LineData groupLine = new LineData();
+			groupLine.setStartPointData(groupStartPoint);
+			groupLine.setEndPointData(groupEndPoint);
+			//int totalLength = groupLine.getLength();
+			//System.out.println("Group Total Length:: "+totalLength);
+			
+			Core.line(drawContour, new Point(groupLine.getStartPointData().getX(),groupLine.getStartPointData().getY()), new Point(groupLine.getEndPointData().getX(),groupLine.getEndPointData().getY()), Scalar.all(0));
+			
+			for(LineData lineData:groupLines){
+				System.out.println("Seq:"+lineData.getContourSequence()+", start:"+lineData.getStartPointData()+", end"+lineData.getEndPointData()+", Length:"+lineData.getLength());
+			}
+			
+		}*/
+		
+		for(LineData tmpLine:hzLines){
+			Core.line(drawContourHz, new Point(tmpLine.getStartPointData().getX(),tmpLine.getStartPointData().getY()), new Point(tmpLine.getEndPointData().getX(),tmpLine.getEndPointData().getY()), Scalar.all(0));
 		}
 		
-		Highgui.imwrite("image-destination1/contours-sub.png", drawContour);
+		for(LineData tmpLine:vertLines){
+			Core.line(drawContourVrt, new Point(tmpLine.getStartPointData().getX(),tmpLine.getStartPointData().getY()), new Point(tmpLine.getEndPointData().getX(),tmpLine.getEndPointData().getY()), Scalar.all(0));
+		}
+		
+		Highgui.imwrite("image-destination1/contours-sub-hz.png", drawContourHz);
+		Highgui.imwrite("image-destination1/contours-sub-vt.png", drawContourVrt);
 		
 		//Imgproc.cont
 		
