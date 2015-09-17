@@ -237,5 +237,9 @@ public class LineData {
 		return (x1 == x2);
 	}
 	
+	public boolean isIncliend(){
+		return (!isVertical() && !isHorizontal());
+	}
+	
 
 }

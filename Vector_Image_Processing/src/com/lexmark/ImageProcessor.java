@@ -41,12 +41,12 @@ public class ImageProcessor {
 		//sourceImage = Imgcodecs.imread(fileName);
 		sourceImage = Highgui.imread(fileName);
 		
-		System.out.println(sourceImage);
+		//System.out.println(sourceImage);
 		
 		Mat sourceImageGrey = new Mat(sourceImage.rows(),sourceImage.cols(),CvType.CV_8UC1);
 		
 		Imgproc.cvtColor(sourceImage, sourceImageGrey,  Imgproc.COLOR_RGB2GRAY);
-		System.out.println(sourceImageGrey);
+		//System.out.println(sourceImageGrey);
 		//Imgcodecs.imwrite("image-destination1/input-grey-"+dateTimeComponent+".png", sourceImageGrey);
 		
 		int scaleFactor = 2;
@@ -66,7 +66,7 @@ public class ImageProcessor {
 		
 		//Imgproc.GaussianBlur(sourceImageGreyScaled, sourceImageGreyScaled, new Size(5,5),0);
 		Imgproc.medianBlur(sourceImageGreyScaled, sourceImageGreyScaled, 5);
-		Highgui.imwrite("image-destination1/hyst-errode-dialate-"+dateTimeComponent+".png", sourceImageGreyScaled);
+		//Highgui.imwrite("image-destination1/hyst-errode-dialate-"+dateTimeComponent+".png", sourceImageGreyScaled);
 		
 		Imgproc.threshold(sourceImageGreyScaled, sourceImageGreyScaled, 150, 255, Imgproc.THRESH_BINARY);
 		
@@ -112,14 +112,14 @@ public class ImageProcessor {
 		List<MatOfPoint> filteredContours = new ArrayList<MatOfPoint>();
 		for(MatOfPoint matOfPoint:contours){
 			double contourArea = Imgproc.contourArea(matOfPoint);
-			System.out.println("Area::"+contourArea);
+			//System.out.println("Area::"+contourArea);
 			
 			if(contourArea == 0){
 				logger.info(matOfPoint.dump());
 				MatOfPoint2f contour2f = new MatOfPoint2f();
 				matOfPoint.convertTo(contour2f, CvType.CV_32FC2);
 				int arcLength = (int) Imgproc.arcLength(contour2f, matOfPoint.isContinuous());
-				System.out.println("Arc Length:"+arcLength);
+				//System.out.println("Arc Length:"+arcLength);
 				if(arcLength > 0){
 					filteredContours.add(matOfPoint);
 				}
@@ -143,10 +143,16 @@ public class ImageProcessor {
 		
 		System.out.println("Filtered contours:: "+filteredContours.size());
 		
-		//ContourHelper.processPoints(filteredContours.get(1));
+		List<MatOfPoint> processedContours = new ArrayList<MatOfPoint>(filteredContours.size());
+		for(MatOfPoint matOfPoint:filteredContours){
+			MatOfPoint matOfPointProcessed = ContourHelper.processPoints(matOfPoint);
+			processedContours.add(matOfPointProcessed);
+		}
 		
 		
-		Imgproc.drawContours(drawContour, filteredContours, -1, Scalar.all(0), 1);
+		
+		
+		Imgproc.drawContours(drawContour, processedContours, -1, Scalar.all(0), 1);
 		Highgui.imwrite("image-destination1/contours-"+dateTimeComponent+".png", drawContour);
 	}
 	

@@ -53,6 +53,41 @@ public class LineUtils {
 		return lineDataLargest;
 	}
 	
+	public static LineData getLargestLineByType(List<LineData> lines,LineTypeEnum lineType){
+		
+		List<LineData> linesOfSimilarType = new ArrayList<LineData>();
+		for(LineData lineData:lines){
+			if(LineTypeEnum.HORIZONTAL == lineType && lineData.isHorizontal()){
+				linesOfSimilarType.add(lineData);
+			}else if(LineTypeEnum.VERTICAL == lineType && lineData.isVertical()){
+				linesOfSimilarType.add(lineData);
+			}else if(LineTypeEnum.INCLIEND == lineType && lineData.isIncliend()){
+				linesOfSimilarType.add(lineData);
+			}
+		}
+		
+		return getLargestLine(linesOfSimilarType);
+	}
+	
+	public static LineData getSmallestLine(LineData... lines){
+		
+		LineData lineDataSmallest = null;
+		int totLines = lines.length;
+		if(totLines > 0){
+			lineDataSmallest = lines[0];
+			
+			for (int i = 1; i < totLines; i++) {
+				LineData tmpLineData = lines[i];
+				if(lineDataSmallest.getLength() > tmpLineData.getLength()){
+					lineDataSmallest = tmpLineData;
+				}
+			}
+			
+		}
+		
+		return lineDataSmallest;
+	}
+	
 	public static boolean mergeHorizontalLines(List<LineData> horizLines,int dX,int dY){
 		
 		boolean mergeSuccess = false;
