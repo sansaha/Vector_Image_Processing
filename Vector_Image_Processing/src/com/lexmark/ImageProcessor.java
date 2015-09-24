@@ -61,12 +61,13 @@ public class ImageProcessor {
 		//TODO
 		//Highgui.imwrite("image-destination1/hyst-"+dateTimeComponent+".png", sourceImageGreyScaled);
 		
+		
 		Imgproc.erode(sourceImageGreyScaled, sourceImageGreyScaled, Imgproc.getStructuringElement(Imgproc.MORPH_CROSS, new Size(2,2)), new Point(0, 0), 1);
 		Imgproc.dilate(sourceImageGreyScaled, sourceImageGreyScaled, Imgproc.getStructuringElement(Imgproc.MORPH_CROSS, new Size(2,2)), new Point(0, 0), 1);
 		
 		//Imgproc.GaussianBlur(sourceImageGreyScaled, sourceImageGreyScaled, new Size(5,5),0);
 		Imgproc.medianBlur(sourceImageGreyScaled, sourceImageGreyScaled, 5);
-		//Highgui.imwrite("image-destination1/hyst-errode-dialate-"+dateTimeComponent+".png", sourceImageGreyScaled);
+		Highgui.imwrite("image-destination1/hyst-errode-dialate-"+dateTimeComponent+".png", sourceImageGreyScaled);
 		
 		Imgproc.threshold(sourceImageGreyScaled, sourceImageGreyScaled, 150, 255, Imgproc.THRESH_BINARY);
 		

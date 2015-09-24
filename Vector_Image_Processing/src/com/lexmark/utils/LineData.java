@@ -11,6 +11,7 @@ public class LineData {
 	private int matchingPixelCount = 0;
 	private boolean borderLine = false;
 	private int contourSequence;
+	private boolean imaginary;
 	
 	public int getContourSequence() {
 		return contourSequence;
@@ -56,6 +57,13 @@ public class LineData {
 	}
 	public void setBorderLine(boolean borderLine) {
 		this.borderLine = borderLine;
+	}
+
+	public boolean isImaginary() {
+		return imaginary;
+	}
+	public void setImaginary(boolean imaginary) {
+		this.imaginary = imaginary;
 	}
 	public int getLength(){
 		

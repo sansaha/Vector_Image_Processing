@@ -7,6 +7,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.log4j.Logger;
 import org.opencv.core.Core;
 import org.opencv.core.CvType;
 import org.opencv.core.Mat;
@@ -23,6 +24,8 @@ import com.lexmark.utils.LineUtils;
 import com.lexmark.utils.PointData;
 
 public class ContourHelper {
+	
+	private static final Logger logger = Logger.getLogger(ContourHelper.class);
 
 	/**
 	 * @param args
@@ -108,20 +111,10 @@ public class ContourHelper {
 		return refineContours;
 	}
 	
-	/*public static void main(String[] args) {
-		System.loadLibrary(Core.NATIVE_LIBRARY_NAME);
-		Point[] points = {new Point(2,0),new Point(12,0),new Point(12,10),new Point(2,10)};
-		MatOfPoint matOfPoint = new MatOfPoint(points);
-		Moments moments = Imgproc.moments(matOfPoint);
-		
-		int x = (int) (moments.get_m10() / moments.get_m00());
-        int y = (int) (moments.get_m01() / moments.get_m00());
-        
-        System.out.println("X:"+x+",Y:"+y);
-		
-	}*/
 	
 	public static MatOfPoint processPoints(MatOfPoint matOfPoint){
+		
+		logger.info("Source"+matOfPoint.dump());
 		
 		List<Point> points = matOfPoint.toList();
 		
@@ -140,7 +133,10 @@ public class ContourHelper {
 			lines.add(lineData);
 		}
 		
-		if(matOfPoint.isContinuous()){
+		boolean continuousContour = matOfPoint.isContinuous();
+		
+		if(continuousContour){
+			//add the last line
 			LineData lineData = new LineData();
 			Point endPoint = points.get(0);
 			Point startPoint = points.get(points.size()-1);
@@ -153,14 +149,301 @@ public class ContourHelper {
 		System.out.println("Total lines:: "+lines.size());
 		
 		
-		Map<Integer,List<LineData>> lineRegionMap = new LinkedHashMap<Integer,List<LineData>>();
+		Map<Integer,List<LineData>> lineRegionMap = createGroup(lines);
 		
+		Mat drawContour = new Mat(2000,2000,CvType.CV_8UC1,Scalar.all(255));
+		
+		System.out.println("Total region:: "+lineRegionMap.keySet().size());
+		
+		List<Point> finalPointList = new ArrayList<Point>();
+		
+		List<LineData> initialProcessedLines = new ArrayList<>();
+		
+		for(Integer groupNoKey:lineRegionMap.keySet()){
+			List<LineData> groupLines = lineRegionMap.get(groupNoKey);
+			
+			System.out.println("Region#"+groupNoKey+", No of line:"+groupLines.size());
+			
+			if(groupLines.size() == 1){
+				Core.line(drawContour, new Point(groupLines.get(0).getStartPointData().getX(),groupLines.get(0).getStartPointData().getY()), new Point(groupLines.get(0).getEndPointData().getX(),groupLines.get(0).getEndPointData().getY()), Scalar.all(0));
+				//finalPointList.add(new Point(groupLines.get(0).getStartPointData().getX(),groupLines.get(0).getStartPointData().getY()));
+				//finalPointList.add(new Point(groupLines.get(0).getEndPointData().getX(),groupLines.get(0).getEndPointData().getY()));
+				initialProcessedLines.add(groupLines.get(0));
+				continue;
+			}
+			
+			int lineTypes = getLineTypeCount(groupLines);
+			
+			if(lineTypes > 2){
+				//further split is required
+				
+				System.out.println("Further split required in Region#"+groupNoKey);
+				List<LineData> subGroupList = new ArrayList<LineData>();
+				for(int i = 0; i <groupLines.size(); i++ ){
+					LineData groupLineData = groupLines.get(i);
+					subGroupList.add(groupLineData);
+					if(getLineTypeCount(subGroupList) <=2){
+						continue;
+					}else{
+						subGroupList.remove(groupLineData);
+						i--;
+						List<LineData> tmpProcessedLines = processRegionPoints(subGroupList);
+						initialProcessedLines.addAll(tmpProcessedLines);
+						subGroupList.clear();
+					}
+					
+				}
+				List<LineData> tmpProcessedLines = processRegionPoints(subGroupList);
+				initialProcessedLines.addAll(tmpProcessedLines);
+				
+				
+			}else{
+				List<LineData> tmpProcessedLines = processRegionPoints(groupLines);
+				initialProcessedLines.addAll(tmpProcessedLines);
+			}
+									
+		}
+		
+		int initialLineCount = initialProcessedLines.size();
+		List<LineData> mergedLines = mergeLinesForward(initialProcessedLines, continuousContour);
+		int mergeLineCount = mergedLines.size();
+		System.out.println("Before call merge line in loop");
+		while(mergeLineCount < initialLineCount){
+			System.out.println("In call merge line loop");
+			initialLineCount = mergeLineCount;
+			mergedLines = mergeLinesForward(mergedLines, continuousContour);
+			mergeLineCount = mergedLines.size();
+		}
+		
+		populatePoints(mergedLines, finalPointList);
+		
+		
+		MatOfPoint processedMatOfPoint = new MatOfPoint(finalPointList.toArray(new Point[]{}));
+		
+		
+		/*List<LineData> newLines = new ArrayList<LineData>(finalPointList.size());
+		
+		int newPointCount = finalPointList.size();
+		
+		for (int i = 0; i < newPointCount-1; i++) {
+			LineData lineData = new LineData();
+			Point startPoint = finalPointList.get(i);
+			Point endPoint = finalPointList.get(i+1);
+			
+			lineData.setStartPointData(new PointData((int)startPoint.x, (int)startPoint.y));
+			lineData.setEndPointData(new PointData((int)endPoint.x, (int)endPoint.y));
+			lineData.setContourSequence(i);
+			newLines.add(lineData);
+		}
+		
+		if(continuousContour){
+			//add the last line
+			LineData lineData = new LineData();
+			Point endPoint = finalPointList.get(0);
+			Point startPoint = finalPointList.get(finalPointList.size()-1);
+			lineData.setStartPointData(new PointData((int)startPoint.x, (int)startPoint.y));
+			lineData.setEndPointData(new PointData((int)endPoint.x, (int)endPoint.y));
+			lineData.setContourSequence(pointCount-1);
+			newLines.add(lineData);
+		}*/
+		
+		//Map<Integer,List<LineData>> lineRegionMapFinal = createGroup(newLines);
+		
+		/*for(Integer groupNoKey:lineRegionMapFinal.keySet()){
+			List<LineData> groupLines = lineRegionMapFinal.get(groupNoKey);
+			
+			System.out.println("Region#"+groupNoKey+", No of line:"+groupLines.size());
+			
+			if(groupLines.size() == 1){
+				//Core.line(drawContour, new Point(groupLines.get(0).getStartPointData().getX(),groupLines.get(0).getStartPointData().getY()), new Point(groupLines.get(0).getEndPointData().getX(),groupLines.get(0).getEndPointData().getY()), Scalar.all(0));
+				continue;
+			}
+			
+			int lineTypes = getLineTypeCount(groupLines);
+			
+			if(lineTypes > 2){
+				//further split is required
+				
+				System.out.println("Further split required in Region#"+groupNoKey);
+				List<LineData> subGroupList = new ArrayList<LineData>();
+				for(int i = 0; i <groupLines.size(); i++ ){
+					LineData groupLineData = groupLines.get(i);
+					subGroupList.add(groupLineData);
+					if(getLineTypeCount(subGroupList) <=2){
+						continue;
+					}else{
+						subGroupList.remove(groupLineData);
+						i--;
+						processRegionPoints(subGroupList, finalPointList);
+						subGroupList.clear();
+					}
+					
+				}
+				processRegionPoints(subGroupList, finalPointList);
+				
+				
+			}else{
+				processRegionPoints(groupLines, finalPointList);
+			}
+									
+		}*/
+		
+		//Highgui.imwrite("image-destination1/contours-processed.png", drawContour);
+		
+		logger.info("Result"+processedMatOfPoint.dump());
+		
+		return processedMatOfPoint;	
+		
+	}
+	
+	private static void populatePoints(List<LineData> lines,List<Point> allPoints){
+		for(LineData lineData:lines){
+			Point startPoint = new Point(lineData.getStartPointData().getX(),lineData.getStartPointData().getY());
+			Point endPoint = new Point(lineData.getEndPointData().getX(),lineData.getEndPointData().getY());
+			
+			if(!allPoints.contains(startPoint)){
+				allPoints.add(startPoint);
+			}
+			if(!allPoints.contains(endPoint)){
+				allPoints.add(endPoint);
+			}
+		}
+	}
+	
+	
+	private static List<LineData> mergeLinesForward(List<LineData> lines,boolean continuous){
+		
+		LineData currentLine = null;
+		LineData nextLine = null;
+		LineData nextToNextLine = null;
+		
+		List<LineData> mergedLines = new ArrayList<>();
+		
+		int totalLines = lines.size();
+		
+		for (int i = 0; i < totalLines-2; i++) {
+			
+			currentLine = lines.get(i);
+			
+			if(currentLine.isIgnore()){
+				continue;
+			}
+			
+			if(totalLines > (i+1)){
+				nextLine = lines.get(i+1);
+			}
+			
+			if(totalLines > (i+2)){
+				nextToNextLine = lines.get(i+2);
+			}
+			
+			if(currentLine != null && nextLine != null && nextToNextLine != null){
+				if((currentLine.isVertical() && nextToNextLine.isVertical()) || 
+						(currentLine.isHorizontal() && nextToNextLine.isHorizontal()) ||
+						(currentLine.isIncliend() && nextToNextLine.isIncliend())){
+					int percentage = getLengthPercentageWithLargestLine(nextLine, currentLine,nextToNextLine);
+					if(percentage < 8){
+						//merge
+						LineData largestLine = null;
+						LineData joinLineStart = null;
+						LineData joinLineEnd = null;
+						if(currentLine.getLength() >= nextToNextLine.getLength()){
+							largestLine = currentLine;
+							joinLineEnd = new LineData();
+						}else{
+							joinLineStart = new LineData();
+							largestLine = nextToNextLine;
+						}
+						
+						PointData startPoint = currentLine.getStartPointData();
+						PointData endPoint = nextToNextLine.getEndPointData();
+						
+						//LineData joinLine = null;
+						LineData mergedLine = new LineData();
+						
+						if(largestLine.isHorizontal()){
+							
+							int y = largestLine.getStartPointData().getY();
+							int x1 = startPoint.getX();
+							int x2 = endPoint.getX();
+							mergedLine.setStartPointData(new PointData(x1, y));
+							mergedLine.setEndPointData(new PointData(x2, y));
+							if(joinLineStart != null){
+								joinLineStart.setStartPointData(startPoint.clonePointData());
+								joinLineStart.setEndPointData(mergedLine.getStartPointData().clonePointData());
+							}else if(joinLineEnd != null){
+								joinLineEnd.setStartPointData(mergedLine.getEndPointData().clonePointData());
+								joinLineEnd.setEndPointData(endPoint.clonePointData());
+							}
+							
+						}else if(largestLine.isVertical()){
+							
+							int x = largestLine.getStartPointData().getX();
+							int y1 = startPoint.getY();
+							int y2 = endPoint.getY();
+							mergedLine.setStartPointData(new PointData(x, y1));
+							mergedLine.setEndPointData(new PointData(x, y2));
+							if(joinLineStart != null){
+								joinLineStart.setStartPointData(startPoint.clonePointData());
+								joinLineStart.setEndPointData(mergedLine.getStartPointData().clonePointData());
+							}else if(joinLineEnd != null){
+								joinLineEnd.setStartPointData(mergedLine.getEndPointData().clonePointData());
+								joinLineEnd.setEndPointData(endPoint.clonePointData());
+							}
+							
+							
+						}else if(largestLine.isIncliend()){
+							mergedLine.setStartPointData(startPoint);
+							mergedLine.setEndPointData(endPoint);
+						}
+						
+						nextLine.setIgnore(true);
+						
+						if(joinLineStart != null){
+							currentLine.setStartPointData(joinLineStart.getStartPointData().clonePointData());
+							currentLine.setEndPointData(joinLineStart.getEndPointData().clonePointData());
+														
+							nextToNextLine.setStartPointData(mergedLine.getStartPointData().clonePointData());
+							nextToNextLine.setEndPointData(mergedLine.getEndPointData().clonePointData());
+
+						}else if(joinLineEnd != null){
+							
+							currentLine.setStartPointData(mergedLine.getStartPointData().clonePointData());
+							currentLine.setEndPointData(mergedLine.getEndPointData().clonePointData());
+														
+							nextToNextLine.setStartPointData(joinLineEnd.getStartPointData().clonePointData());
+							nextToNextLine.setEndPointData(joinLineEnd.getEndPointData().clonePointData());
+						} else if(joinLineStart == null && joinLineEnd == null){
+							currentLine.setIgnore(true);
+							nextToNextLine.setStartPointData(mergedLine.getStartPointData().clonePointData());
+							nextToNextLine.setEndPointData(mergedLine.getEndPointData().clonePointData());
+						}
+						
+						
+					}
+					
+				}
+			}
+			
+		}
+		
+		for(LineData lineData:lines){
+			if(lineData.isIgnore()){
+				continue;
+			}
+			mergedLines.add(lineData);
+		}
+		
+		return mergedLines;
+	}
+	
+	
+	private static Map<Integer,List<LineData>> createGroup(List<LineData> lines){
+		
+		Map<Integer,List<LineData>> lineRegionMap = new LinkedHashMap<Integer,List<LineData>>();
 		
 		int groupNo = 1;
 		
-		Mat drawContour = new Mat(2000,2000,CvType.CV_8UC1,Scalar.all(255));
-		//Mat drawContourHz = new Mat(2000,2000,CvType.CV_8UC1,Scalar.all(255));
-		//Mat drawContourVrt = drawContourHz.clone();
 		int totalLine = lines.size();
 		for(LineData lineData:lines){
 			if(!lineRegionMap.containsKey(groupNo)){
@@ -187,7 +470,6 @@ public class ContourHelper {
 				int dX = Math.abs(lineDataPrevious.getEndPointData().getX()-lineData.getEndPointData().getX());
 				int dY = Math.abs(lineDataPrevious.getEndPointData().getY()-lineData.getEndPointData().getY());
 				
-				//System.out.println(dX+","+dY+","+lengthPercentage);
 				if((dX <= 3 && dY <=3)
 						|| (lineDataNext != null && getLengthPercentageWithLargestLine(lineData, lineDataPrevious,lineDataNext) <= 2 && ((lineDataPrevious.isHorizontal() && lineDataNext.isHorizontal()) || (lineDataPrevious.isVertical() && lineDataNext.isVertical()) || (lineDataPrevious.isIncliend() && lineDataNext.isIncliend())))
 						|| (lineDataPreviousToPrevious != null && getLengthPercentageWithLargestLine(lineDataPrevious, lineDataPreviousToPrevious,lineData) <= 2 && ((lineDataPreviousToPrevious.isHorizontal() && lineData.isHorizontal()) || (lineDataPreviousToPrevious.isVertical() && lineData.isVertical()) || (lineDataPreviousToPrevious.isIncliend() && lineData.isIncliend())))
@@ -210,174 +492,7 @@ public class ContourHelper {
 			
 		}
 		
-		System.out.println("Total region:: "+lineRegionMap.keySet().size());
-		
-		List<Point> finalPointList = new ArrayList<Point>();
-		
-		for(Integer groupNoKey:lineRegionMap.keySet()){
-			List<LineData> groupLines = lineRegionMap.get(groupNoKey);
-			
-			System.out.println("Region#"+groupNoKey+", No of line:"+groupLines.size());
-			
-			if(groupLines.size() == 1){
-				Core.line(drawContour, new Point(groupLines.get(0).getStartPointData().getX(),groupLines.get(0).getStartPointData().getY()), new Point(groupLines.get(0).getEndPointData().getX(),groupLines.get(0).getEndPointData().getY()), Scalar.all(0));
-				continue;
-			}
-			
-			int lineTypes = getLineTypeCount(groupLines);
-			
-			if(lineTypes > 2){
-				//TODO further split is required
-				/*for(LineData lineDataTmp:groupLines){
-					
-				}*/
-				System.out.println("Further split required in Region#"+groupNoKey);
-				List<LineData> subGroupList = new ArrayList<LineData>();
-				for(int i = 0; i <groupLines.size(); i++ ){
-					LineData groupLineData = groupLines.get(i);
-					subGroupList.add(groupLineData);
-					if(getLineTypeCount(subGroupList) <=2){
-						continue;
-					}else{
-						subGroupList.remove(groupLineData);
-						i--;
-						processRegionPoints(subGroupList, finalPointList);
-						subGroupList.clear();
-					}
-					
-				}
-				processRegionPoints(subGroupList, finalPointList);
-				
-				
-			}else{
-				processRegionPoints(groupLines, finalPointList);
-			}
-			
-			/*int hZLineTotalLength = getTotalLengthByLineType(groupLines, LineTypeEnum.HORIZONTAL);
-			int vTLineTotalLength = getTotalLengthByLineType(groupLines, LineTypeEnum.VERTICAL);
-			int incLineTotalLength = getTotalLengthByLineType(groupLines, LineTypeEnum.INCLIEND);
-			
-			int maxLength = LineUtils.getMaxVal(hZLineTotalLength,vTLineTotalLength,incLineTotalLength);
-			
-			PointData groupStartPoint = groupLines.get(0).getStartPointData();
-			
-			int startSeqNo = groupLines.get(0).getContourSequence();
-			PointData groupEndPoint = groupLines.get(groupLines.size()-1).getEndPointData();
-			int endSeqNo = groupLines.get(groupLines.size()-1).getContourSequence();
-			
-			//LineData lineDataLargest = LineUtils.getLargestLine(groupLines);
-			LineData lineDataLargest = null;
-			
-			LineData mergedLargestLine = new LineData();
-			LineData startJoinLine = null;
-			LineData endJoinLine = null;
-			
-			//if(lineDataLargest.isHorizontal()){
-			if(maxLength == hZLineTotalLength){
-				lineDataLargest = LineUtils.getLargestLineByType(groupLines, LineTypeEnum.HORIZONTAL);
-				if(lineDataLargest.getContourSequence() == startSeqNo){
-					mergedLargestLine.setStartPointData(groupStartPoint.clonePointData());
-					mergedLargestLine.setEndPointData(new PointData(groupEndPoint.getX(), groupStartPoint.getY()));
-					endJoinLine = new LineData();
-					endJoinLine.setStartPointData(mergedLargestLine.getEndPointData().clonePointData());
-					endJoinLine.setEndPointData(groupEndPoint.clonePointData());
-				}else if(lineDataLargest.getContourSequence() == endSeqNo){
-					mergedLargestLine.setStartPointData(new PointData(groupStartPoint.getX(),groupEndPoint.getY()));
-					mergedLargestLine.setEndPointData(groupEndPoint.clonePointData());
-					startJoinLine = new LineData();
-					startJoinLine.setStartPointData(groupStartPoint.clonePointData());
-					startJoinLine.setEndPointData(mergedLargestLine.getStartPointData().clonePointData());
-				}else{
-					mergedLargestLine.setStartPointData(new PointData(groupStartPoint.getX(), lineDataLargest.getStartPointData().getY()));
-					mergedLargestLine.setEndPointData(new PointData(groupEndPoint.getX(),lineDataLargest.getStartPointData().getY()));
-					startJoinLine = new LineData();
-					startJoinLine.setStartPointData(groupStartPoint.clonePointData());
-					startJoinLine.setEndPointData(mergedLargestLine.getStartPointData().clonePointData());
-					endJoinLine = new LineData();
-					endJoinLine.setStartPointData(mergedLargestLine.getEndPointData().clonePointData());
-					endJoinLine.setEndPointData(groupEndPoint.clonePointData());
-				}
-				
-			//}else if(lineDataLargest.isVertical()){
-			}else if(maxLength == vTLineTotalLength){
-				lineDataLargest = LineUtils.getLargestLineByType(groupLines, LineTypeEnum.VERTICAL);
-				if(lineDataLargest.getContourSequence() == startSeqNo){
-					mergedLargestLine.setStartPointData(groupStartPoint.clonePointData());
-					mergedLargestLine.setEndPointData(new PointData(groupStartPoint.getX(), groupEndPoint.getY()));
-					endJoinLine = new LineData();
-					endJoinLine.setStartPointData(mergedLargestLine.getEndPointData().clonePointData());
-					endJoinLine.setEndPointData(groupEndPoint.clonePointData());
-				}else if(lineDataLargest.getContourSequence() == endSeqNo){
-					mergedLargestLine.setStartPointData(new PointData(groupEndPoint.getX(),groupStartPoint.getY()));
-					mergedLargestLine.setEndPointData(groupEndPoint.clonePointData());
-					startJoinLine = new LineData();
-					startJoinLine.setStartPointData(groupStartPoint.clonePointData());
-					startJoinLine.setEndPointData(mergedLargestLine.getStartPointData().clonePointData());
-				}else{
-					mergedLargestLine.setStartPointData(new PointData(lineDataLargest.getStartPointData().getX(), groupStartPoint.getY()));
-					mergedLargestLine.setEndPointData(new PointData(lineDataLargest.getStartPointData().getX(),groupEndPoint.getY()));
-					startJoinLine = new LineData();
-					startJoinLine.setStartPointData(groupStartPoint.clonePointData());
-					startJoinLine.setEndPointData(mergedLargestLine.getStartPointData().clonePointData());
-					endJoinLine = new LineData();
-					endJoinLine.setStartPointData(mergedLargestLine.getEndPointData().clonePointData());
-					endJoinLine.setEndPointData(groupEndPoint.clonePointData());
-				}
-				
-			}else{
-				//inclined
-				//TODO
-				mergedLargestLine.setStartPointData(groupStartPoint);
-				mergedLargestLine.setEndPointData(groupEndPoint);
-			}
-			
-			
-			if(startJoinLine != null){
-				Point startPoint = new Point(startJoinLine.getStartPointData().getX(),startJoinLine.getStartPointData().getY());
-				Point endPoint = new Point(startJoinLine.getEndPointData().getX(),startJoinLine.getEndPointData().getY());
-				Core.line(drawContour,startPoint,endPoint,Scalar.all(0));
-				if(!finalPointList.contains(startPoint)){
-					finalPointList.add(startPoint);
-				}
-				if(!finalPointList.contains(endPoint)){
-					finalPointList.add(endPoint);
-				}
-			}
-			
-			if(mergedLargestLine != null){
-				Point startPoint = new Point(mergedLargestLine.getStartPointData().getX(),mergedLargestLine.getStartPointData().getY());
-				Point endPoint = new Point(mergedLargestLine.getEndPointData().getX(),mergedLargestLine.getEndPointData().getY());
-				Core.line(drawContour,startPoint,endPoint,Scalar.all(0));
-				if(!finalPointList.contains(startPoint)){
-					finalPointList.add(startPoint);
-				}
-				if(!finalPointList.contains(endPoint)){
-					finalPointList.add(endPoint);
-				}
-			}
-			
-			
-			if(endJoinLine != null){
-				Point startPoint = new Point(endJoinLine.getStartPointData().getX(),endJoinLine.getStartPointData().getY());
-				Point endPoint = new Point(endJoinLine.getEndPointData().getX(),endJoinLine.getEndPointData().getY());
-				Core.line(drawContour,startPoint,endPoint,Scalar.all(0));
-				if(!finalPointList.contains(startPoint)){
-					finalPointList.add(startPoint);
-				}
-				if(!finalPointList.contains(endPoint)){
-					finalPointList.add(endPoint);
-				}
-			}*/
-						
-		}
-		
-		
-		MatOfPoint processedMatOfPoint = new MatOfPoint(finalPointList.toArray(new Point[]{}));
-		
-		//Highgui.imwrite("image-destination1/contours-processed.png", drawContour);
-		
-		return processedMatOfPoint;	
-		
+		return lineRegionMap;
 	}
 	
 	private static int getLineTypeCount(List<LineData> lineData ){
@@ -411,7 +526,7 @@ public class ContourHelper {
 		return count;
 	}
 	
-	private static void processRegionPoints(List<LineData> regionLines,List<Point> finalPointList){
+	private static List<LineData> processRegionPoints(List<LineData> regionLines){
 		
 		int hZLineTotalLength = getTotalLengthByLineType(regionLines, LineTypeEnum.HORIZONTAL);
 		int vTLineTotalLength = getTotalLengthByLineType(regionLines, LineTypeEnum.VERTICAL);
@@ -439,21 +554,25 @@ public class ContourHelper {
 				mergedLargestLine.setStartPointData(groupStartPoint.clonePointData());
 				mergedLargestLine.setEndPointData(new PointData(groupEndPoint.getX(), groupStartPoint.getY()));
 				endJoinLine = new LineData();
+				endJoinLine.setImaginary(true);
 				endJoinLine.setStartPointData(mergedLargestLine.getEndPointData().clonePointData());
 				endJoinLine.setEndPointData(groupEndPoint.clonePointData());
 			}else if(lineDataLargest.getContourSequence() == endSeqNo){
 				mergedLargestLine.setStartPointData(new PointData(groupStartPoint.getX(),groupEndPoint.getY()));
 				mergedLargestLine.setEndPointData(groupEndPoint.clonePointData());
 				startJoinLine = new LineData();
+				startJoinLine.setImaginary(true);
 				startJoinLine.setStartPointData(groupStartPoint.clonePointData());
 				startJoinLine.setEndPointData(mergedLargestLine.getStartPointData().clonePointData());
 			}else{
 				mergedLargestLine.setStartPointData(new PointData(groupStartPoint.getX(), lineDataLargest.getStartPointData().getY()));
 				mergedLargestLine.setEndPointData(new PointData(groupEndPoint.getX(),lineDataLargest.getStartPointData().getY()));
 				startJoinLine = new LineData();
+				startJoinLine.setImaginary(true);
 				startJoinLine.setStartPointData(groupStartPoint.clonePointData());
 				startJoinLine.setEndPointData(mergedLargestLine.getStartPointData().clonePointData());
 				endJoinLine = new LineData();
+				endJoinLine.setImaginary(true);
 				endJoinLine.setStartPointData(mergedLargestLine.getEndPointData().clonePointData());
 				endJoinLine.setEndPointData(groupEndPoint.clonePointData());
 			}
@@ -465,75 +584,61 @@ public class ContourHelper {
 				mergedLargestLine.setStartPointData(groupStartPoint.clonePointData());
 				mergedLargestLine.setEndPointData(new PointData(groupStartPoint.getX(), groupEndPoint.getY()));
 				endJoinLine = new LineData();
+				endJoinLine.setImaginary(true);
 				endJoinLine.setStartPointData(mergedLargestLine.getEndPointData().clonePointData());
 				endJoinLine.setEndPointData(groupEndPoint.clonePointData());
 			}else if(lineDataLargest.getContourSequence() == endSeqNo){
 				mergedLargestLine.setStartPointData(new PointData(groupEndPoint.getX(),groupStartPoint.getY()));
 				mergedLargestLine.setEndPointData(groupEndPoint.clonePointData());
 				startJoinLine = new LineData();
+				startJoinLine.setImaginary(true);
 				startJoinLine.setStartPointData(groupStartPoint.clonePointData());
 				startJoinLine.setEndPointData(mergedLargestLine.getStartPointData().clonePointData());
 			}else{
 				mergedLargestLine.setStartPointData(new PointData(lineDataLargest.getStartPointData().getX(), groupStartPoint.getY()));
 				mergedLargestLine.setEndPointData(new PointData(lineDataLargest.getStartPointData().getX(),groupEndPoint.getY()));
 				startJoinLine = new LineData();
+				startJoinLine.setImaginary(true);
 				startJoinLine.setStartPointData(groupStartPoint.clonePointData());
 				startJoinLine.setEndPointData(mergedLargestLine.getStartPointData().clonePointData());
 				endJoinLine = new LineData();
+				endJoinLine.setImaginary(true);
 				endJoinLine.setStartPointData(mergedLargestLine.getEndPointData().clonePointData());
 				endJoinLine.setEndPointData(groupEndPoint.clonePointData());
 			}
 			
 		}else{
 			//inclined
-			//TODO
 			mergedLargestLine.setStartPointData(groupStartPoint);
 			mergedLargestLine.setEndPointData(groupEndPoint);
 		}
 		
+		List<LineData> processedLines = new ArrayList<>(3);
 		
 		if(startJoinLine != null){
-			Point startPoint = new Point(startJoinLine.getStartPointData().getX(),startJoinLine.getStartPointData().getY());
-			Point endPoint = new Point(startJoinLine.getEndPointData().getX(),startJoinLine.getEndPointData().getY());
-			//Core.line(drawContour,startPoint,endPoint,Scalar.all(0));
-			if(!finalPointList.contains(startPoint)){
-				finalPointList.add(startPoint);
-			}
-			if(!finalPointList.contains(endPoint)){
-				finalPointList.add(endPoint);
-			}
+			processedLines.add(startJoinLine);
 		}
 		
 		if(mergedLargestLine != null){
-			Point startPoint = new Point(mergedLargestLine.getStartPointData().getX(),mergedLargestLine.getStartPointData().getY());
-			Point endPoint = new Point(mergedLargestLine.getEndPointData().getX(),mergedLargestLine.getEndPointData().getY());
-			//Core.line(drawContour,startPoint,endPoint,Scalar.all(0));
-			if(!finalPointList.contains(startPoint)){
-				finalPointList.add(startPoint);
-			}
-			if(!finalPointList.contains(endPoint)){
-				finalPointList.add(endPoint);
-			}
+			processedLines.add(mergedLargestLine);
 		}
 		
 		
 		if(endJoinLine != null){
-			Point startPoint = new Point(endJoinLine.getStartPointData().getX(),endJoinLine.getStartPointData().getY());
-			Point endPoint = new Point(endJoinLine.getEndPointData().getX(),endJoinLine.getEndPointData().getY());
-			//Core.line(drawContour,startPoint,endPoint,Scalar.all(0));
-			if(!finalPointList.contains(startPoint)){
-				finalPointList.add(startPoint);
-			}
-			if(!finalPointList.contains(endPoint)){
-				finalPointList.add(endPoint);
-			}
+			processedLines.add(endJoinLine);
 		}
+		
+		return processedLines;
 	}
 	
 	private static int getLengthPercentageWithLargestLine(LineData refLine,LineData... lines){
 		int percentage = 0;
 		LineData largestLine = LineUtils.getLargestLine(Arrays.asList(lines));
-		percentage = (refLine.getLength()*100)/largestLine.getLength();
+		int largestLinLength = largestLine.getLength();
+		if(largestLinLength == 0){
+			largestLinLength = 1;
+		}
+		percentage = (refLine.getLength()*100)/largestLinLength;
 		//System.out.println("percentage::"+percentage);
 		return percentage;
 	}
@@ -541,7 +646,11 @@ public class ContourHelper {
 	/*private static int getLengthPercentageWithSmallestLine(LineData refLine,LineData... lines){
 		int percentage = 0;
 		LineData smallestLine = LineUtils.getSmallestLine(lines);
-		percentage = (refLine.getLength()*100)/smallestLine.getLength();
+		int smallestLinLength = smallestLine.getLength();
+		if(smallestLinLength == 0){
+			smallestLinLength = 1;
+		}
+		percentage = (refLine.getLength()*100)/smallestLinLength;
 		//System.out.println("percentage::"+percentage);
 		return percentage;
 	}*/

@@ -75,6 +75,9 @@ public class ImageDetectByBorderColour {
 						initialPointList.add(pointData);
 						prevColourValue = value;
 						previousMatchCol = colStart;
+					}else{
+						prevColourValue = value;
+						previousMatchCol = colStart;
 					}
 					
 				}
@@ -107,6 +110,9 @@ public class ImageDetectByBorderColour {
 					if((previousMatchRow >= 0 && (rowStart - previousMatchRow) > lineWidth) || (previousMatchRow == -1)){
 						PointData pointData = new PointData(colStart,rowStart);
 						initialPointList.add(pointData);
+						prevColourValue = value;
+						previousMatchRow = rowStart;
+					}else{
 						prevColourValue = value;
 						previousMatchRow = rowStart;
 					}
