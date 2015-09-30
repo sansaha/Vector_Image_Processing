@@ -395,6 +395,8 @@ public class ContourHelper {
 						}else if(largestLine.isIncliend()){
 							mergedLine.setStartPointData(startPoint);
 							mergedLine.setEndPointData(endPoint);
+							joinLineStart = null;
+							joinLineEnd = null;
 						}
 						
 						nextLine.setIgnore(true);
